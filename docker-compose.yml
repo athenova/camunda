@@ -1,0 +1,52 @@
+version: '3'
+services:
+  camunda-db:
+    image: postgres
+    volumes:
+      - ./storage/camunda/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=camunda
+      - POSTGRES_USER=camunda
+    networks:
+      - camunda-internal
+    restart: always
+
+  camunda:
+    build:
+      context: ./build/camunda
+    depends_on:
+      - camunda-db
+    environment:
+      - DB_DRIVER=org.postgresql.Driver
+      - DB_URL=jdbc:postgresql://camunda-db:5432/camunda
+      - DB_USERNAME=camunda
+      - DB_PASSWORD=camunda
+      - WAIT_FOR=camunda-db:5432
+      - TZ=Europe/Moscow
+    networks:
+      - camunda-internal
+    restart: always
+
+  http:
+    image: nginx
+    volumes:
+      - ./conf/nginx/templates:/etc/nginx/templates
+    depends_on:
+      - camunda
+    ports:
+      - 80:80
+    environment:
+      - NGINX_HOST=server.athe.nova
+      - NGINX_PORT=80
+    networks:
+      - camunda-internal
+      - host-external
+    restart: always
+
+networks:
+  camunda-internal:
+    driver: bridge
+    internal: true
+  host-external:
+    external:
+      name: docker_gwbridge
